@@ -1,0 +1,213 @@
+<html>
+<style>
+    .textLayer {
+        position: absolute;
+        left: 0;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        color: #000;
+        font-family: sans-serif;
+    }
+
+    .textLayer > div {
+        color: transparent;
+        position: absolute;
+    }
+</style>
+
+<body>
+  <div>
+    <button id="prev" onclick="goPrevious()">Previous</button>
+    <button id="next" onclick="goNext()">Next</button>
+
+    <span>Page: <span id="page_num"></span> / <span id="page_count"></span></span>
+  </div>
+
+  <div id = "viewer">
+    <canvas id="the-canvas" style="border:1px solid black"></canvas>
+  </div>
+
+  <!-- Use latest PDF.js build from Github -->
+  <script type="text/javascript" src="https://raw.github.com/mozilla/pdf.js/gh-pages/build/pdf.js"></script>
+  
+  <script type="text/javascript">
+    //
+    // NOTE: 
+    // Modifying the URL below to another server will likely *NOT* work. Because of browser
+    // security restrictions, we have to use a file server with special headers
+    // (CORS) - most servers don't support cross-origin browser requests.
+    //
+    var url = 'github.pdf';
+
+    //
+    // Disable workers to avoid yet another cross-origin issue (workers need the URL of
+    // the script to be loaded, and currently do not allow cross-origin scripts)
+    //
+    PDFJS.disableWorker = true;
+
+    var pdfDoc = null,
+        pageNum = 1,
+        scale = 0.8,
+        canvas = document.getElementById('the-canvas'),
+        ctx = canvas.getContext('2d');
+
+    //
+    // Get page info from document, resize canvas accordingly, and render page
+    //
+
+    var container = document.getElementById('viewer');
+    
+var TextLayerBuilder = function textLayerBuilder(textLayerDiv) {
+  this.textLayerDiv = textLayerDiv;
+  
+  this.beginLayout = function textLayerBuilderBeginLayout() {
+    this.textDivs = [];
+    this.textLayerQueue = [];
+  };
+
+  this.endLayout = function textLayerBuilderEndLayout() {
+    var self = this;
+    var textDivs = this.textDivs;
+    var textLayerDiv = this.textLayerDiv;
+    var renderTimer = null;
+    var renderingDone = false;
+    var renderInterval = 0;
+    var resumeInterval = 500; // in ms
+
+    // Render the text layer, one div at a time
+    function renderTextLayer() {
+      if (textDivs.length === 0) {
+        clearInterval(renderTimer);
+        renderingDone = true;
+        return;
+      }
+      var textDiv = textDivs.shift();
+      if (textDiv.dataset.textLength > 0) {
+        textLayerDiv.appendChild(textDiv);
+
+        if (textDiv.dataset.textLength > 1) { // avoid div by zero
+          // Adjust div width to match canvas text
+          // Due to the .offsetWidth calls, this is slow
+          // This needs to come after appending to the DOM
+          var textScale = textDiv.dataset.canvasWidth / textDiv.offsetWidth;
+          CustomStyle.setProp('transform' , textDiv,
+            'scale(' + textScale + ', 1)');
+          CustomStyle.setProp('transformOrigin' , textDiv, '0% 0%');
+        }
+      } // textLength > 0
+    }
+    renderTimer = setInterval(renderTextLayer, renderInterval);
+
+    // Stop rendering when user scrolls. Resume after XXX milliseconds
+    // of no scroll events
+    var scrollTimer = null;
+    function textLayerOnScroll() {
+      if (renderingDone) {
+        window.removeEventListener('scroll', textLayerOnScroll, false);
+        return;
+      }
+
+      // Immediately pause rendering
+      clearInterval(renderTimer);
+
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(function textLayerScrollTimer() {
+        // Resume rendering
+        renderTimer = setInterval(renderTextLayer, renderInterval);
+      }, resumeInterval);
+    }; // textLayerOnScroll
+
+    window.addEventListener('scroll', textLayerOnScroll, false);
+  }; // endLayout
+
+  this.appendText = function textLayerBuilderAppendText(text,
+                                                        fontName, fontSize) {
+    var textDiv = document.createElement('div');
+
+    // vScale and hScale already contain the scaling to pixel units
+    var fontHeight = fontSize * text.geom.vScale;
+    textDiv.dataset.canvasWidth = text.canvasWidth * text.geom.hScale;
+    textDiv.dataset.fontName = fontName;
+
+    textDiv.style.fontSize = fontHeight + 'px';
+    textDiv.style.left = text.geom.x + 'px';
+    textDiv.style.top = (text.geom.y - fontHeight) + 'px';
+    textDiv.textContent = PDFJS.bidi(text, -1);
+    textDiv.dir = text.direction;
+    textDiv.dataset.textLength = text.length;
+    this.textDivs.push(textDiv);
+  };
+};
+    function renderPage(num) {
+      // Using promise to fetch the page
+      pdfDoc.getPage(num).then(function(page) {
+
+        var div = document.createElement('div');
+        div.id = 'pageContainer' + num;
+        div.className = 'page';
+        
+        container.appendChild(div);
+        
+        var viewport = page.getViewport(scale);
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        
+
+        var textLayerDiv = document.createElement('div');
+        textLayerDiv.className = 'textLayer';
+        div.appendChild(textLayerDiv);
+        
+        var textLayer = textLayerDiv ? new TextLayerBuilder(textLayerDiv) : null;
+        console.log(textLayer);
+        
+        // Render PDF page into canvas context
+        var renderContext = {
+          canvasContext: ctx,
+          viewport: viewport,
+          textLayer: textLayer
+        };
+        page.render(renderContext);
+
+      });
+    
+      // Update page counters
+      document.getElementById('page_num').textContent = pageNum;
+      document.getElementById('page_count').textContent = pdfDoc.numPages;
+
+
+    }
+
+    //
+    // Go to previous page
+    //
+    function goPrevious() {
+      if (pageNum <= 1)
+        return;
+      pageNum--;
+      renderPage(pageNum);
+    }
+
+    //
+    // Go to next page
+    //
+    function goNext() {
+      if (pageNum >= pdfDoc.numPages)
+        return;
+      pageNum++;
+      renderPage(pageNum);
+    }
+
+    //
+    // Asynchronously download PDF as an ArrayBuffer
+    //
+    PDFJS.getDocument(url).then(function getPdfHelloWorld(_pdfDoc) {
+      pdfDoc = _pdfDoc;
+      renderPage(pageNum);
+    });
+    
+  </script>  
+</body>
+</html>
+
