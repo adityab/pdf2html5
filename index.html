@@ -50,11 +50,18 @@
     //
     PDFJS.disableWorker = true;
 
+
+
+
     var pdfDoc = null,
         pageNum = 1,
         scale = 1,
-        canvas = document.getElementById('the-canvas'),
+        canvas = document.createElement('canvas'),
         ctx = canvas.getContext('2d');
+
+
+    canvas.id = 'page' + pageNum;
+    canvas.mozOpaque = true;
 
     //
     // Get page info from document, resize canvas accordingly, and render page
@@ -202,7 +209,7 @@ var TextLayerBuilder = function textLayerBuilder(textLayerDiv) {
         div.className = 'page';
         
         container.appendChild(div);
-        
+        div.appendChild(canvas)
         var viewport = page.getViewport(scale);
         canvas.height = viewport.height;
         canvas.width = viewport.width;
