@@ -1,8 +1,16 @@
 <html>
+
+<body>
+  <div>
+    <button id="prev" onclick="goPrevious()">Previous</button>
+    <button id="next" onclick="goNext()">Next</button>
+    <button id="to image" onclick="getCanvasImage()">to Image</button>
+
+    <span>Page: <span id="page_num"></span> / <span id="page_count"></span></span>
+  </div>
+
+  <div id = "viewer">
 <style>
-.page{
-    position: relative;
-}
     .textLayer {
         position: absolute;
         left: 0;
@@ -22,19 +30,11 @@
     ::-moz-selection { background:rgba(0,0,255,0.3); }
 </style>
 
-<body>
-  <div>
-    <button id="prev" onclick="goPrevious()">Previous</button>
-    <button id="next" onclick="goNext()">Next</button>
-
-    <span>Page: <span id="page_num"></span> / <span id="page_count"></span></span>
   </div>
 
-  <div id = "viewer"></div>
-
   <!-- Use latest PDF.js build from Github -->
-  <script type="text/javascript" src="https://raw.github.com/mozilla/pdf.js/gh-pages/build/pdf.js"></script>
-  
+  <script type="text/javascript" src="pdf.js"></script>
+  <script type="text/javascript" src="jquery.js"></script>
   <script type="text/javascript">
     //
     // NOTE: 
@@ -60,7 +60,7 @@
         ctx = canvas.getContext('2d');
 
 
-    canvas.id = 'page' + pageNum;
+    canvas.id = 'page';
     canvas.mozOpaque = true;
 
     //
@@ -68,6 +68,14 @@
     //
 
     var container = document.getElementById('viewer');
+    var div = document.createElement('div');
+    var textLayerDiv = document.createElement('div');
+        div.id = 'pageContainer';
+        $(div).css("position", "relative")
+        container.appendChild(div);
+        div.appendChild(canvas)
+        textLayerDiv.className = 'textLayer';
+        div.appendChild(textLayerDiv);
 // optimised CSS custom property getter/setter
 var CustomStyle = (function CustomStyleClosure() {
 
@@ -204,21 +212,14 @@ var TextLayerBuilder = function textLayerBuilder(textLayerDiv) {
       // Using promise to fetch the page
       pdfDoc.getPage(num).then(function(page) {
 
-        var div = document.createElement('div');
-        div.id = 'pageContainer' + num;
-        div.className = 'page';
-        
-        container.appendChild(div);
-        div.appendChild(canvas)
+
         var viewport = page.getViewport(scale);
         canvas.height = viewport.height;
         canvas.width = viewport.width;
 
         
 
-        var textLayerDiv = document.createElement('div');
-        textLayerDiv.className = 'textLayer';
-        div.appendChild(textLayerDiv);
+        
         
         var textLayer = textLayerDiv ? new TextLayerBuilder(textLayerDiv) : null;
         console.log(textLayer);
@@ -244,6 +245,8 @@ var TextLayerBuilder = function textLayerBuilder(textLayerDiv) {
     // Go to previous page
     //
     function goPrevious() {
+      reset()
+
       if (pageNum <= 1)
         return;
       pageNum--;
@@ -254,6 +257,8 @@ var TextLayerBuilder = function textLayerBuilder(textLayerDiv) {
     // Go to next page
     //
     function goNext() {
+    reset()       
+
       if (pageNum >= pdfDoc.numPages)
         return;
       pageNum++;
@@ -266,8 +271,47 @@ var TextLayerBuilder = function textLayerBuilder(textLayerDiv) {
     PDFJS.getDocument(url).then(function getPdfHelloWorld(_pdfDoc) {
       pdfDoc = _pdfDoc;
       renderPage(pageNum);
+      
     });
+function reset()
+{
+    $(canvas).remove();
+    $(".textLayer").empty()
+    canvas = document.createElement('canvas'),
+    ctx = canvas.getContext('2d');
+    canvas.id = 'page';
+    canvas.mozOpaque = true;
+    $("#pageContainer").append(canvas)
+}
+
+
+    function getCanvasImage()
+{
+
+  $('#pageContainer').each(function(index, value) {
+    var canvas = document.getElementById("page")
+    var dataURL = canvas.toDataURL();
+    console.log(dataURL)
     
+    $(this).css("background", "url(" + dataURL +")")
+    $(this).css("height", $(canvas).css("height"))
+    $(this).css("width", $(canvas).css("width"))
+    $(canvas).remove();
+
+    console.log("done")
+    //console.log(canvas.toDataURL())
+//    console.log('div' + index + ':' + $(this).attr('id'));
+  });
+}
+    function extract()
+    {
+        getCanvasImage();
+        return $("#viewer").html() + "<br/>"
+    }
+    function addCanvas()
+    {
+
+    }
   </script>  
 </body>
 </html>

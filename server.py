@@ -12,10 +12,22 @@ browser.get("http://localhost/pdf2html5") # Load page
 time.sleep(0.2) # Let the page load, will be added to the API
 try:
    elem =  browser.find_element_by_xpath("//div[contains(@id,'viewer')]")
-   browser.execute_script("getCanvasImage()")
-   outHTML = browser.execute_script("return arguments[0].innerHTML;", elem) 
-   outHTML = "<html><body>" + outHTML + "</body></html>"
+   #browser.execute_script("getCanvasImage()")
+#   outHTML = browser.execute_script("return extract()") 
+   maxPage = int(browser.execute_script("return pdfDoc.numPages"))
+   outHTML = ""
+   #print maxPage
+   for i in range(0, maxPage):
+    outHTML += browser.execute_script("return extract()")
+    browser.execute_script("goNext()")
+    #sleep(500)
+
+   fileStart = "<html><body>"
+   fileEnd = "</body></html>"
+
+   
    print outHTML.encode("utf8")
 except NoSuchElementException:
     assert 0, "can't find seleniumhq"
 browser.close()
+
